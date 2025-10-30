@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 
@@ -52,6 +53,11 @@ func realMain() error {
 	defer machine.Close(ctx)
 
 	myArm, err := arm.FromRobot(machine, "arm")
+	if err != nil {
+		return err
+	}
+
+	myGripper, err := gripper.FromRobot(machine, "gripper")
 	if err != nil {
 		return err
 	}
@@ -100,13 +106,27 @@ func realMain() error {
 		}
 	} else if *cmd == "replay" {
 		for _, fn := range flag.Args() {
+			if fn == "open" {
+				err = myGripper.Open(ctx, nil)
+				if err != nil {
+					return err
+				}
+				continue
+			} else if fn == "grab" {
+				_, err = myGripper.Grab(ctx, nil)
+				if err != nil {
+					return err
+				}
+				continue
+			}
+
 			d := &data{}
 			err = vmodutils.ReadJSONFromFile(fn, d)
 			if err != nil {
 				return err
 			}
 
-			err = myArm.MoveThroughJointPositions(ctx, d.All, &arm.MoveOptions{MaxVelRads: 20}, nil)
+			err = myArm.MoveThroughJointPositions(ctx, d.All, &arm.MoveOptions{MaxVelRads: 18, MaxAccRads: 200}, nil)
 			if err != nil {
 				return err
 			}
